@@ -5,20 +5,22 @@
 //  Created by 林悠斗 on 2024/12/28.
 //
 
+import ComposableArchitecture
 import SwiftUI
 
 struct ContentView: View {
+    @Bindable var store: StoreOf<TodoReducer>
+
     var body: some View {
         VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+            TodoView(store: store)
         }
         .padding()
     }
 }
 
 #Preview {
-    ContentView()
+    ContentView(store: Store(initialState: TodoReducer.State(id: UUID())) {
+        TodoReducer()
+    })
 }
