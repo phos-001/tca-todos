@@ -32,19 +32,28 @@ struct TodosReducer {
     }
 
     enum Action: BindableAction, Sendable {
+        case addTodoButtonTapped
         case binding(BindingAction<State>)
         case todos(IdentifiedActionOf<TodoReducer>)
     }
+
+    @Dependency(\.uuid) var uuid
 
     var body: some Reducer<State, Action> {
         BindingReducer()
         Reduce { state, action in
             switch action {
+            case .addTodoButtonTapped:
+                state.todos.insert(TodoReducer.State(id: self.uuid()), at: 0)
+                return .none
             case .binding:
                 return .none
             case .todos:
                 return .none
             }
+        }
+        .forEach(\.todos, action: \.todos) {
+            TodoReducer()
         }
     }
 }
@@ -60,6 +69,12 @@ struct ContentView: View {
                     TodoView(store: store)
                 }
             }
+            .navigationTitle("Todoリスト")
+            .navigationBarItems(trailing: HStack {
+                Button("追加") {
+                    store.send(.addTodoButtonTapped, animation: .default)
+                }
+            })
         }
     }
 }
