@@ -8,19 +8,72 @@
 import ComposableArchitecture
 import SwiftUI
 
-struct ContentView: View {
-    @Bindable var store: StoreOf<TodoReducer>
+enum Filter: LocalizedStringKey, CaseIterable, Hashable {
+    case all = "All"
+    case active = "Active"
+    case completed = "Completed"
+}
 
-    var body: some View {
-        VStack {
-            TodoView(store: store)
+@Reducer
+struct TodosReducer {
+    @ObservableState
+    struct State: Equatable {
+        var editMode: EditMode = .inactive
+        var filter: Filter = .all
+        var todos: IdentifiedArrayOf<TodoReducer.State> = []
+
+        var filteredTodos: IdentifiedArrayOf<TodoReducer.State> {
+            switch filter {
+            case .active: self.todos.filter { !$0.isComplete }
+            case .all: self.todos
+            case .completed: self.todos.filter(\.isComplete)
+            }
         }
-        .padding()
+    }
+
+    enum Action: BindableAction, Sendable {
+        case binding(BindingAction<State>)
+        case todos(IdentifiedActionOf<TodoReducer>)
+    }
+
+    var body: some Reducer<State, Action> {
+        BindingReducer()
+        Reduce { state, action in
+            switch action {
+            case .binding:
+                return .none
+            case .todos:
+                return .none
+            }
+        }
     }
 }
 
+struct ContentView: View {
+    @Bindable var store: StoreOf<TodosReducer>
+
+    var body: some View {
+        NavigationStack {
+            VStack {
+                List(store.scope(state: \.filteredTodos,
+                                 action: \.todos)) { store in
+                    TodoView(store: store)
+                }
+            }
+        }
+    }
+}
+
+extension IdentifiedArrayOf<TodoReducer.State> {
+    static let mock: Self = [
+        TodoReducer.State(id: UUID(),
+                          description: "Check Mail",
+                          isComplete: false)
+    ]
+}
+
 #Preview {
-    ContentView(store: Store(initialState: TodoReducer.State(id: UUID())) {
-        TodoReducer()
+    ContentView(store: Store(initialState: TodosReducer.State(todos: .mock)) {
+        TodosReducer()
     })
 }

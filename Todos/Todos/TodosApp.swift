@@ -12,8 +12,8 @@ import SwiftUI
 struct TodosApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView(store: Store(initialState: TodoReducer.State(id: UUID())) {
-                TodoReducer()
+            ContentView(store: Store(initialState: TodosReducer.State()) {
+                TodosReducer()
             })
         }
     }
