@@ -64,6 +64,14 @@ struct ContentView: View {
     var body: some View {
         NavigationStack {
             VStack {
+                Picker("Filter", selection: $store.filter.animation()) {
+                    ForEach(Filter.allCases, id: \.self) { filter in
+                        Text(filter.rawValue).tag(filter)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
+
                 List(store.scope(state: \.filteredTodos,
                                  action: \.todos)) { store in
                     TodoView(store: store)
