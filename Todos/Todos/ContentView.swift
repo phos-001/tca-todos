@@ -18,9 +18,9 @@ enum Filter: LocalizedStringKey, CaseIterable, Hashable {
 struct TodosReducer {
     @ObservableState
     struct State: Equatable {
+        @Shared(.todos) var todos: IdentifiedArrayOf<TodoReducer.State> = []
         var editMode: EditMode = .inactive
         var filter: Filter = .all
-        var todos: IdentifiedArrayOf<TodoReducer.State> = []
 
         var filteredTodos: IdentifiedArrayOf<TodoReducer.State> {
             switch filter {
@@ -38,6 +38,7 @@ struct TodosReducer {
         case move(IndexSet, Int)
         case sortCompletedTodos
         case todos(IdentifiedActionOf<TodoReducer>)
+        case toggleEditMode
     }
 
     @Dependency(\.continuousClock) var clock
@@ -49,14 +50,18 @@ struct TodosReducer {
         Reduce { state, action in
             switch action {
             case .addTodoButtonTapped:
-                state.todos.insert(TodoReducer.State(id: self.uuid()), at: 0)
+                state.$todos.withLock {
+                    $0.insert(TodoReducer.State(id: self.uuid()), at: 0)
+                }
                 return .none
             case .binding:
                 return .none
             case let .delete(indexSet):
                 let filteredTodos = state.filteredTodos
-                indexSet.forEach {
-                    state.todos.remove(id: filteredTodos[$0].id)
+                for index in indexSet {
+                    state.$todos.withLock { todos in
+                        todos.remove(id: filteredTodos[index].id)
+                    }
                 }
                 return .none
             case var .move(source, destination):
@@ -70,13 +75,17 @@ struct TodosReducer {
                         ? state.todos.index(id: state.filteredTodos[destination].id)
                         : state.todos.endIndex) ?? destination
                 }
-                state.todos.move(fromOffsets: source, toOffset: destination)
+                state.$todos.withLock {
+                    $0.move(fromOffsets: source, toOffset: destination)
+                }
                 return .run { send in
                     try await self.clock.sleep(for: .microseconds(100))
                     await send(.sortCompletedTodos)
                 }
             case .sortCompletedTodos:
-                state.todos.sort { $1.isComplete && !$0.isComplete }
+                state.$todos.withLock {
+                    $0.sort { $1.isComplete && !$0.isComplete }
+                }
                 return .none
             case .todos(.element(id: _, action: .binding(\.isComplete))):
                 return .run { send in
@@ -85,6 +94,9 @@ struct TodosReducer {
                 }
                 .cancellable(id: CancelID.todoCompletion, cancelInFlight: true)
             case .todos:
+                return .none
+            case .toggleEditMode:
+                state.editMode = state.editMode.isEditing ? .inactive : .active
                 return .none
             }
         }
@@ -119,7 +131,7 @@ struct ContentView: View {
             .navigationTitle("Todoリスト")
             .navigationBarItems(trailing: HStack {
                 Button.init(action: {
-                    store.editMode = store.editMode.isEditing ? .inactive : .active
+                    store.send(.toggleEditMode)
                 }, label: {
                     if store.editMode.isEditing {
                         Text("完了")
@@ -142,6 +154,12 @@ extension IdentifiedArrayOf<TodoReducer.State> {
                           description: "Check Mail",
                           isComplete: false)
     ]
+}
+
+extension SharedKey where Self == FileStorageKey<IdentifiedArrayOf<TodoReducer.State>> {
+    fileprivate static var todos: Self {
+        fileStorage(.documentsDirectory.appending(component: "todos.json"))
+    }
 }
 
 #Preview {

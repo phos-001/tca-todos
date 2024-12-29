@@ -11,7 +11,7 @@ import SwiftUI
 @Reducer
 struct TodoReducer {
     @ObservableState
-    struct State: Equatable, Identifiable {
+    struct State: Codable, Equatable, Identifiable {
         let id: UUID
         var description = ""
         var isComplete = false
@@ -37,6 +37,7 @@ struct TodoView: View {
                 Image(systemName: store.isComplete ? "checkmark.square" : "square")
             }
             .buttonStyle(.plain)
+
             TextField("Untitled Todo", text: $store.description)
         }
         .foregroundColor(store.isComplete ? .gray : nil)
