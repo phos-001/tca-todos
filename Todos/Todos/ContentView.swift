@@ -41,7 +41,6 @@ struct TodosReducer {
         case toggleEditMode
     }
 
-    @Dependency(\.continuousClock) var clock
     @Dependency(\.uuid) var uuid
     private enum CancelID { case todoCompletion }
 
@@ -65,21 +64,10 @@ struct TodosReducer {
                 }
                 return .none
             case var .move(source, destination):
-                if state.filter == .completed {
-                    source = IndexSet(
-                        source
-                            .map { state.filteredTodos[$0] }
-                            .compactMap { state.todos.index(id: $0.id) })
-                    destination = (
-                        destination < state.filteredTodos.endIndex
-                        ? state.todos.index(id: state.filteredTodos[destination].id)
-                        : state.todos.endIndex) ?? destination
-                }
                 state.$todos.withLock {
                     $0.move(fromOffsets: source, toOffset: destination)
                 }
                 return .run { send in
-                    try await self.clock.sleep(for: .microseconds(100))
                     await send(.sortCompletedTodos)
                 }
             case .sortCompletedTodos:
@@ -89,7 +77,6 @@ struct TodosReducer {
                 return .none
             case .todos(.element(id: _, action: .binding(\.isComplete))):
                 return .run { send in
-                    try await self.clock.sleep(for: .milliseconds(200))
                     await send(.sortCompletedTodos, animation: .default)
                 }
                 .cancellable(id: CancelID.todoCompletion, cancelInFlight: true)
