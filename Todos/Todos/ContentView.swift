@@ -42,6 +42,7 @@ struct TodosReducer {
 
     @Dependency(\.continuousClock) var clock
     @Dependency(\.uuid) var uuid
+    private enum CancelID { case todoCompletion }
 
     var body: some Reducer<State, Action> {
         BindingReducer()
@@ -77,6 +78,12 @@ struct TodosReducer {
             case .sortCompletedTodos:
                 state.todos.sort { $1.isComplete && !$0.isComplete }
                 return .none
+            case .todos(.element(id: _, action: .binding(\.isComplete))):
+                return .run { send in
+                    try await self.clock.sleep(for: .milliseconds(200))
+                    await send(.sortCompletedTodos, animation: .default)
+                }
+                .cancellable(id: CancelID.todoCompletion, cancelInFlight: true)
             case .todos:
                 return .none
             }
