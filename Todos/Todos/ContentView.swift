@@ -108,11 +108,18 @@ struct ContentView: View {
                 .padding(.horizontal)
                 
                 List() {
-                    ForEach(store.scope(state: \.filteredTodos, action: \.todos)) { store in
-                        TodoView(store: store)
+                    ForEach(store.todos.filter { todo in
+                        switch store.filter {
+                        case .all: return true
+                        case .active: return !todo.isComplete
+                        case .completed: return todo.isComplete
+                        }
+                    }) { todo in
+                        if let todoStore = store.scope(state: \.todos[id: todo.id],
+                                                       action: \.todos[id: todo.id]) {
+                            TodoView(store: todoStore)
+                        }
                     }
-                    .onDelete { store.send(.delete($0)) }
-                    .onMove { store.send(.move($0, $1)) }
                 }
             }
             .navigationTitle("Todoリスト")
